@@ -1900,6 +1900,18 @@ public final class Settings {
         public static final String USER_DEFINED_KEY3_APP = "user_defined_key3_app";
 
         /**
+         * Stores the uri of the define application for the envelope key
+         * @hide
+         */
+        public static final String USER_DEFINED_KEY_ENVELOPE = "user_defined_key_envelope";
+
+        /**
+         * Stores the uri of the define application for the explorer key
+         * @hide
+         */
+        public static final String USER_DEFINED_KEY_EXPLORER = "user_defined_key_explorer";
+
+        /**
          * Specifies whether to prompt on the power dialog
          * @hide
          */
@@ -2546,22 +2558,11 @@ public final class Settings {
          public static final String TRACKBALL_NOTIFICATION_BLEND_COLOR = "trackball_blend_color";
 
         /**
-         * Trackball Notification Colors. The value is String  pkg=color|pkg=color
+         * Trackball Notification Colors. The value is a String, containing a list of packages:
+         * pkg=color=blink=mode=category|pkg=color=blink=mode=category|...
          * @hide
          */
-        public static final String NOTIFICATION_PACKAGE_COLORS = "|";
-
-        /**
-         * Trackball Notification List. The value is String  pkg|pkg
-         * @hide
-         */
-        public static final String NOTIFICATION_PACKAGE_LIST = "|";
-
-        /**
-         * Trackball Notification Colors Debugging. The value is boolean (1 or 0)
-         * @hide
-         */
-        public static final String NOTIFICATION_PACKAGE_COLORS_GET_PACK = "0";
+        public static final String NOTIFICATION_PACKAGE_COLORS = "notification_custom_led_colors";
 
         /**
          * Whether to unlock the menu key.  The value is boolean (1 or 0).
