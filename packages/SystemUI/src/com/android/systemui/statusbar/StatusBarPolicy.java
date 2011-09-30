@@ -92,6 +92,9 @@ public class StatusBarPolicy {
     private final Handler mHandler = new StatusBarHandler();
     private final IBatteryStats mBatteryStats;
 
+    // headset
+    private boolean mHeadsetPlugged = false;
+
     // storage
     private StorageManager mStorageManager;
 
@@ -604,6 +607,8 @@ public class StatusBarPolicy {
     // need another var that superceding mPhoneSignalHidden
     private boolean mShowCmSignal;
 
+    private boolean mShowHeadset;
+
     class SettingsObserver extends ContentObserver {
         SettingsObserver(Handler handler) {
             super(handler);
@@ -616,6 +621,9 @@ public class StatusBarPolicy {
 
             resolver.registerContentObserver(Settings.System
                     .getUriFor(Settings.System.STATUS_BAR_CM_SIGNAL_TEXT), false, this);
+
+            resolver.registerContentObserver(Settings.System
+                    .getUriFor(Settings.System.STATUS_BAR_HEADSET), false, this);
         }
 
         @Override public void onChange(boolean selfChange) {
@@ -1016,9 +1024,9 @@ public class StatusBarPolicy {
             updateSignalStrength(); // apply any change in mInetCondition
             break;
         case ConnectivityManager.TYPE_WIMAX:
-             mInetCondition = inetCondition;
-             updateWiMAX(intent);
-             break;
+            mInetCondition = inetCondition;
+            updateWiMAX(intent);
+            break;
         }
     }
 
@@ -1386,16 +1394,16 @@ public class StatusBarPolicy {
     }
 
     private final void updateHeadset(Intent intent) {
-        final boolean isConnected = intent.getIntExtra("state", 0) == 1;
+        mHeadsetPlugged = intent.getIntExtra("state", 0) == 1;
 
-        if (isConnected) {
+        if (mHeadsetPlugged) {
             final boolean hasMicrophone = intent.getIntExtra("microphone", 1) == 1;
             final int iconId = hasMicrophone
                     ? com.android.internal.R.drawable.stat_sys_headset
                     : R.drawable.stat_sys_headset_no_mic;
             mService.setIcon("headset", iconId, 0);
         }
-        mService.setIconVisibility("headset", isConnected);
+        mService.setIconVisibility("headset", mShowHeadset && mHeadsetPlugged);
     }
 
     private final void updateBluetooth(Intent intent) {
@@ -1508,31 +1516,18 @@ public class StatusBarPolicy {
             mWimaxExtraState = intent.getIntExtra(
                     WimaxManagerConstants.EXTRA_WIMAX_STATE_DETAIL,
                     WimaxManagerConstants.WIMAX_DEREGISTRATION);
-
-            switch(mWimaxState) {
-                case WimaxManagerConstants.WIMAX_STATE_DISCONNECTED:
-                    iconId = sWimaxDisconnectedImg;
-                    break;
-                case WimaxManagerConstants.WIMAX_STATE_CONNECTED:
-                    if(mWimaxExtraState == WimaxManagerConstants.WIMAX_IDLE) {
-                        iconId = sWimaxIdleImg;
-                    }
-                    else {
-                        iconId = sWimaxSignalImages[mInetCondition][mWimaxSignal];
-                    }
-                    break;
-            }
-            mService.setIcon("wimax", iconId, 0);
         } else if (action.equals(WimaxManagerConstants.NETWORK_STATE_CHANGED_ACTION)) {
             final NetworkInfo networkInfo = (NetworkInfo) intent.getParcelableExtra(WimaxManagerConstants.EXTRA_NETWORK_INFO);
             if (networkInfo != null && networkInfo.isConnected()) {
-                iconId = sWimaxSignalImages[mInetCondition][mWimaxSignal];
+                mWimaxState = WimaxManagerConstants.WIMAX_STATE_CONNECTED;
+                mWimaxExtraState = WimaxManagerConstants.WIMAX_STATE_UNKNOWN;
             } else if (networkInfo != null && networkInfo.isAvailable()) {
-                iconId = sWimaxIdleImg;
+                mWimaxState = WimaxManagerConstants.WIMAX_STATE_CONNECTED;
+                mWimaxExtraState = WimaxManagerConstants.WIMAX_IDLE;
             } else {
-                iconId = sWimaxDisconnectedImg;
+                mWimaxState = WimaxManagerConstants.WIMAX_STATE_DISCONNECTED;
+                mWimaxExtraState = WimaxManagerConstants.WIMAX_STATE_UNKNOWN;
             }
-            mService.setIcon("wimax", iconId, 0);
         }
         switch(mWimaxState) {
             case WimaxManagerConstants.WIMAX_STATE_DISCONNECTED:
@@ -1655,10 +1650,13 @@ public class StatusBarPolicy {
         mCmBatteryStatus = !mShowCmBattery;
         mService.setIconVisibility("battery", !mShowCmBattery);
 
-      //0 will hide the cmsignaltext and show the signal bars
-       mShowCmSignal = Settings.System.getInt(mContext.getContentResolver(),
-       Settings.System.STATUS_BAR_CM_SIGNAL_TEXT, 0) != 0;
-       mService.setIconVisibility("phone_signal", !mShowCmSignal);
+        //0 will hide the cmsignaltext and show the signal bars
+        mShowCmSignal = Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.STATUS_BAR_CM_SIGNAL_TEXT, 0) != 0;
+        mService.setIconVisibility("phone_signal", !mShowCmSignal);
 
+        mShowHeadset = (Settings.System.getInt(resolver,
+                Settings.System.STATUS_BAR_HEADSET, 1) == 1);
+        mService.setIconVisibility("headset", mShowHeadset && mHeadsetPlugged);
     }
 }

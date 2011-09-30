@@ -107,6 +107,10 @@ private:
         virtual status_t        takePicture();
         virtual status_t        setParameters(const String8& params);
         virtual String8         getParameters() const;
+        #ifdef MOTO_CUSTOM_PARAMETERS
+        virtual status_t        setCustomParameters(const String8& params);
+        virtual String8         getCustomParameters() const;
+        #endif
         virtual status_t        sendCommand(int32_t cmd, int32_t arg1, int32_t arg2);
     private:
         friend class CameraService;
@@ -175,7 +179,7 @@ private:
         sp<CameraHardwareInterface>     mHardware;       // cleared after disconnect()
         bool                            mUseOverlay;     // immutable after constructor
         sp<OverlayRef>                  mOverlayRef;
-#ifdef USE_OVERLAY_FORMAT_YCbCr_420_SP
+#if defined(USE_OVERLAY_FORMAT_YCbCr_420_SP) || defined(USE_OVERLAY_FORMAT_YCrCb_420_SP)
         sp<Overlay>                     mOverlay;
 #endif
         int                             mOverlayW;
