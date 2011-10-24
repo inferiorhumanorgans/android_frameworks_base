@@ -105,28 +105,42 @@ public class ProfileManagerService extends IProfileManager.Stub {
     }
 
     private void initialize() {
+        initialize(false);
+    }
+
+    private void initialize(boolean skipFile) {
         mProfiles = new HashMap<UUID, Profile>();
         mProfileNames = new HashMap<String, UUID>();
         mGroups = new HashMap<UUID, NotificationGroup>();
         mDirty = false;
 
-        try {
-            loadFromFile();
-        } catch (RemoteException e) {
-            e.printStackTrace();
-        } catch (XmlPullParserException e) {
+        boolean init = skipFile;
+
+        if (! skipFile) {
             try {
-                initialiseStructure();
-            } catch (Throwable ex) {
-                Log.e(TAG, "Error loading xml from resource: ", ex);
+                loadFromFile();
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            } catch (XmlPullParserException e) {
+                init = true;
+            } catch (IOException e) {
+                init = true;
             }
-        } catch (IOException e) {
+        }
+
+        if (init) {
             try {
                 initialiseStructure();
             } catch (Throwable ex) {
                 Log.e(TAG, "Error loading xml from resource: ", ex);
             }
         }
+    }
+
+    @Override
+    public void resetAll() {
+        enforceChangePermissions();
+        initialize(true);
     }
 
     @Override
@@ -182,19 +196,16 @@ public class ProfileManagerService extends IProfileManager.Stub {
             if (doinit) {
                 if (LOCAL_LOGV) Log.v(TAG, "setActiveProfile(Profile, boolean) - Running init");
 
+                /*
+                 * We need to clear the caller's identity in order to
+                 * - allow the profile switch to execute actions not included in the caller's permissions
+                 * - broadcast INTENT_ACTION_PROFILE_SELECTED
+                 */
+                long token = clearCallingIdentity();
+
                 // Call profile's "doSelect"
                 mActiveProfile.doSelect(mContext);
 
-                /*
-                 * Clearing the calling identity AFTER the profile doSelect
-                 * to reduce security risks based on an external class extending the
-                 * Profile class and embedding malicious code to be executed with "system" rights.
-                 * This isn't a fool-proof safety measure, but it's better than giving
-                 * the child class system-level access by simply calling setActiveProfile.
-                 *
-                 * We need to clear the permissions to broadcast INTENT_ACTION_PROFILE_SELECTED.
-                 */
-                long token = clearCallingIdentity();
                 // Notify other applications of newly selected profile.
                 Intent broadcast = new Intent(INTENT_ACTION_PROFILE_SELECTED);
                 broadcast.putExtra("name", mActiveProfile.getName());
@@ -202,6 +213,7 @@ public class ProfileManagerService extends IProfileManager.Stub {
                 broadcast.putExtra("lastName", lastProfile.getName());
                 broadcast.putExtra("lastUuid", lastProfile.getUuid().toString());
                 mContext.sendBroadcast(broadcast);
+
                 restoreCallingIdentity(token);
                 persistIfDirty();
             }
