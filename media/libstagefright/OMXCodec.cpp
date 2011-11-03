@@ -268,7 +268,7 @@ static const CodecInfo kEncoderInfo[] = {
 };
 #elif defined(TARGET_OMAP3)
 static const CodecInfo kDecoderInfo[] = {
-    { MEDIA_MIMETYPE_IMAGE_JPEG, "OMX.TI.JPEG.decode" },
+    { MEDIA_MIMETYPE_IMAGE_JPEG, "OMX.TI.JPEG.decoder" },
     { MEDIA_MIMETYPE_AUDIO_MPEG, "OMX.TI.MP3.decode" },
     { MEDIA_MIMETYPE_AUDIO_MPEG, "OMX.PV.mp3dec" },
     { MEDIA_MIMETYPE_AUDIO_AMR_NB, "OMX.TI.AMR.decode" },
@@ -307,7 +307,7 @@ static const CodecInfo kEncoderInfo[] = {
 #endif
 #else
 static const CodecInfo kDecoderInfo[] = {
-    { MEDIA_MIMETYPE_IMAGE_JPEG, "OMX.TI.JPEG.decode" },
+    { MEDIA_MIMETYPE_IMAGE_JPEG, "OMX.TI.JPEG.decoder" },
     { MEDIA_MIMETYPE_AUDIO_MPEG, "OMX.Nvidia.mp3.decoder" },
 //    { MEDIA_MIMETYPE_AUDIO_MPEG, "OMX.TI.MP3.decode" },
     { MEDIA_MIMETYPE_AUDIO_MPEG, "MP3Decoder" },
@@ -1332,7 +1332,7 @@ status_t OMXCodec::configureCodec(const sp<MetaData> &meta, uint32_t flags) {
     }
 
     if (!strcasecmp(mMIME, MEDIA_MIMETYPE_IMAGE_JPEG)
-        && !strcmp(mComponentName, "OMX.TI.JPEG.decode")) {
+        && !strcmp(mComponentName, "OMX.TI.JPEG.decoder")) {
         OMX_COLOR_FORMATTYPE format =
             OMX_COLOR_Format32bitARGB8888;
             // OMX_COLOR_FormatYUV420PackedPlanar;
@@ -3054,7 +3054,8 @@ status_t OMXCodec::allocateBuffersOnPort(OMX_U32 portIndex) {
                     temp_size, alignedSize, pFrame->pointer(), pFrameHeap->getSize());
                 err = mOMX->useBuffer(mNode, portIndex, pFrame, &buffer);
             } else
-#else
+#endif
+#if !defined(TARGET_OMAP4)
             {
                 err = mOMX->useBuffer(mNode, portIndex, mem, &buffer);
             }
@@ -3937,7 +3938,8 @@ void OMXCodec::drainInputBuffers() {
         //and camera will not give any more unless we give release
         if (mIsEncoder && (mQuirks & kAvoidMemcopyInputRecordingFrames) && (i == 4))
             break;
-#elif defined(OMAP_ENHANCEMENT)
+#endif
+#ifdef OMAP_ENHANCEMENT
         if (!(*buffers)[i].mOwnedByComponent) {
             drainInputBuffer(&buffers->editItemAt(i));
         }
@@ -4821,9 +4823,7 @@ void OMXCodec::setBuffers(Vector< sp<IMemory> > mBufferAddresses, bool portRecon
 status_t OMXCodec::read(
         MediaBuffer **buffer, const ReadOptions *options) {
 
-#if defined(TARGET_OMAP4) && defined(OMAP_ENHANCEMENT)
     status_t wait_status = 0;
-#endif
 
     *buffer = NULL;
 
@@ -4908,13 +4908,13 @@ status_t OMXCodec::read(
         while (mSeekTimeUs >= 0) {
 #if defined(TARGET_OMAP4) && defined(OMAP_ENHANCEMENT)
             wait_status = (mNSecsToWait == 0) ? mBufferFilled.wait(mLock) : mBufferFilled.waitRelative(mLock, mNSecsToWait);
+#else
+            wait_status = mBufferFilled.waitRelative(mLock, 3000000000);
+#endif
             if (wait_status) {
                 LOGE("Timed out waiting for the buffer! Line %d", __LINE__);
                 return UNKNOWN_ERROR;
             }
-#else
-            mBufferFilled.wait(mLock);
-#endif
         }
     }
 
@@ -4991,7 +4991,11 @@ status_t OMXCodec::read(
 
 #else
     while (mState != ERROR && !mNoMoreOutputData && mFilledBuffers.empty()) {
-        mBufferFilled.wait(mLock);
+        wait_status = mBufferFilled.waitRelative(mLock, 3000000000);
+        if (wait_status) {
+            LOGE("Timed out waiting for the buffer! Line %d", __LINE__);
+            return UNKNOWN_ERROR;
+        }
     }
 #endif
 
