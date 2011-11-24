@@ -363,7 +363,27 @@ static MediaPlayer* newMediaPlayer(const char *file) {
     return mp;
 }
 
+void * loadSoundFunc(void *data) {
+    if( gCameraService != NULL) {
+        gCameraService->loadSoundAsync();
+    } else {
+        LOGE(" Shutter sound might be absent ");
+    }
+    return NULL;
+}
 void CameraService::loadSound() {
+    pthread_t thr;
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+    if( !pthread_create(&thr, &attr, loadSoundFunc, NULL) ) {
+        LOGV(" loadSoundFunc thread created successfully ");
+    } else {
+        LOGE(" Error creating thread: Shutter sound might be absent ");
+    }
+}
+void CameraService::loadSoundAsync() {
     Mutex::Autolock lock(mSoundLock);
     LOG1("CameraService::loadSound ref=%d", mSoundRef);
     if (mSoundRef++) return;
@@ -1029,9 +1049,10 @@ void CameraService::Client::stopRecording() {
     Mutex::Autolock lock(mLock);
     if (checkPidAndHardware() != NO_ERROR) return;
 
-    mCameraService->playSound(SOUND_RECORDING);
     disableMsgType(CAMERA_MSG_VIDEO_FRAME);
     mHardware->stopRecording();
+
+    mCameraService->playSound(SOUND_RECORDING);
 
     mPreviewBuffer.clear();
 }

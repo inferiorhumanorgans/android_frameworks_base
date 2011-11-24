@@ -1338,6 +1338,9 @@ status_t MPEG4Writer::Track::start(MetaData *params) {
 
     sp<MetaData> meta = new MetaData;
     meta->setInt64(kKeyTime, startTimeUs);
+    int32_t bitRate = 0;
+    params->findInt32(kKeyBitRate, &bitRate);
+    mMeta->setInt32(kKeyBitRate, bitRate);
     status_t err = mSource->start(meta.get());
     if (err != OK) {
         mDone = mReachedEOS = true;
@@ -1851,7 +1854,7 @@ status_t MPEG4Writer::Track::threadEntry() {
     uint32_t previousSampleSize = 0;  // Size of the previous sample
     int64_t previousPausedDurationUs = 0;
     int64_t timestampUs;
-#if defined(OMAP_ENHANCEMENT) && defined(TARGET_OMAP3)
+#if (defined(OMAP_ENHANCEMENT) && defined(TARGET_OMAP3)) || defined(OMAP_COMPAT)
     uint8_t *copy_spspps;
     int32_t copy_spspps_size = 0;
 #endif
@@ -1911,7 +1914,7 @@ status_t MPEG4Writer::Track::threadEntry() {
             mGotAllCodecSpecificData = true;
             continue;
         }
-#if defined(OMAP_ENHANCEMENT) && defined(TARGET_OMAP3)
+#if (defined(OMAP_ENHANCEMENT) && defined(TARGET_OMAP3)) || defined(OMAP_COMPAT)
         else if (mIsAvc && count < 3) {
             size_t size = buffer->range_length();
             size_t start_code_size = 0;
@@ -2566,7 +2569,7 @@ void MPEG4Writer::Track::writeTrackHeader(
                       mOwner->writeInt8(0);         // decoder version
                       mOwner->writeInt16(0x83FF);   // mode set: all enabled
                       mOwner->writeInt8(0);         // mode change period
-                      mOwner->writeInt8(1);         // frames per sample
+                      mOwner->writeInt8(0x0F);      // frames per sample
                     mOwner->endBox();
                   }
                 mOwner->endBox();
@@ -2625,12 +2628,18 @@ void MPEG4Writer::Track::writeTrackHeader(
                         mOwner->writeInt8(0x20);  // objectTypeIndication ISO/IEC 14492-2
                         mOwner->writeInt8(0x11);  // streamType VisualStream
 
+                        CHECK(tkhdDuration > 0);
+                        int32_t avgBitRate = ((float(mEstimatedTrackSizeBytes) / float(tkhdDuration)) * 8 * 1000);
+                        int32_t maxBitRate = 0;
+                        mMeta->findInt32(kKeyBitRate, &maxBitRate);
+
                         static const uint8_t kData[] = {
-                            0x01, 0x77, 0x00,
-                            0x00, 0x03, 0xe8, 0x00,
-                            0x00, 0x03, 0xe8, 0x00
+                            0x01, 0x77, 0x00
                         };
+
                         mOwner->write(kData, sizeof(kData));
+                        mOwner->writeInt32(maxBitRate);
+                        mOwner->writeInt32(avgBitRate);
 
                         mOwner->writeInt8(0x05);  // DecoderSpecificInfoTag
 
