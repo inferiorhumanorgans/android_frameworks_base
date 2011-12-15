@@ -104,10 +104,8 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
     private TextView mDate;
     private TextView mTime;
     private TextView mAmPm;
-    private LinearLayout mStatusBox;
-    private TextView mStatusCharging;
-    private TextView mStatusAlarm;
-    private TextView mStatusCalendar;
+    private TextView mStatus1;
+    private TextView mStatus2;
     private TextView mScreenLocked;
     private TextView mEmergencyCallText;
     private Button mEmergencyCallButton;
@@ -138,7 +136,7 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
     private int mBatteryLevel = 100;
 
     private String mNextAlarm = null;
-    private String mNextCalendar = null;
+    private Drawable mAlarmIcon = null;
     private String mCharging = null;
     private Drawable mChargingIcon = null;
 
@@ -359,11 +357,8 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
         mTime = (TextView) findViewById(R.id.timeDisplay);
         mAmPm = (TextView) findViewById(R.id.am_pm);
         mDate = (TextView) findViewById(R.id.date);
-
-        mStatusBox = (LinearLayout) findViewById(R.id.status_box);
-        mStatusCharging = (TextView) findViewById(R.id.status_charging);
-        mStatusAlarm = (TextView) findViewById(R.id.status_alarm);
-        mStatusCalendar = (TextView) findViewById(R.id.status_calendar);
+        mStatus1 = (TextView) findViewById(R.id.status1);
+        mStatus2 = (TextView) findViewById(R.id.status2);
 
         mCustomMsg = (TextView) findViewById(R.id.customMsg);
 
@@ -683,33 +678,26 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
 
     private void centerWidgets() {
         if (mWidgetLayout == 2) {
-            RelativeLayout.LayoutParams layoutParams;
-            layoutParams = (RelativeLayout.LayoutParams) mCarrier.getLayoutParams();
+            RelativeLayout.LayoutParams layoutParams = (RelativeLayout.LayoutParams)
+            mCarrier.getLayoutParams();
             layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT;
             mCarrier.setLayoutParams(layoutParams);
             mCarrier.setGravity(Gravity.CENTER_HORIZONTAL);
-
-            mStatusBox.setGravity(Gravity.CENTER_HORIZONTAL);
-
-            centerWidget(mClock);
-            centerWidget(mDate);
-            centerWidget(mStatusCharging);
-            centerWidget(mStatusAlarm);
-            centerWidget(mStatusCalendar);
+            layoutParams = (RelativeLayout.LayoutParams)mDate.getLayoutParams();
+            layoutParams.addRule(RelativeLayout.CENTER_HORIZONTAL, 1);
+            mDate.setLayoutParams(layoutParams);
+            layoutParams = (RelativeLayout.LayoutParams)mStatus1.getLayoutParams();
+            layoutParams.addRule(RelativeLayout.CENTER_HORIZONTAL, 1);
+            layoutParams.leftMargin = 0;
+            mStatus1.setLayoutParams(layoutParams);
+            layoutParams = (RelativeLayout.LayoutParams)mStatus2.getLayoutParams();
+            layoutParams.addRule(RelativeLayout.CENTER_HORIZONTAL, 1);
+            layoutParams.leftMargin = 0;
+            mStatus2.setLayoutParams(layoutParams);
+            layoutParams = (RelativeLayout.LayoutParams)mClock.getLayoutParams();
+            layoutParams.addRule(RelativeLayout.CENTER_HORIZONTAL, 1);
+            mClock.setLayoutParams(layoutParams);
         }
-    }
-
-    private void centerWidget(View view) {
-        ViewGroup.LayoutParams params = view.getLayoutParams();
-        if (params instanceof RelativeLayout.LayoutParams) {
-            ((RelativeLayout.LayoutParams) params).addRule(RelativeLayout.CENTER_HORIZONTAL, 1);
-        } else if (params instanceof LinearLayout.LayoutParams) {
-            LinearLayout.LayoutParams p = (LinearLayout.LayoutParams) params;
-            p.gravity = Gravity.CENTER_HORIZONTAL;
-            p.leftMargin = 0;
-            p.rightMargin = 0;
-        }
-        view.setLayoutParams(params);
     }
 
     static void setBackground(Context bcontext, ViewGroup layout){
@@ -771,7 +759,6 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
 
         refreshBatteryStringAndIcon();
         refreshAlarmDisplay();
-        refreshCalendarDisplay();
         refreshMusicStatus();
         refreshPlayingTitle();
 
@@ -930,16 +917,17 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
 
     private void refreshAlarmDisplay() {
         mNextAlarm = mLockPatternUtils.getNextAlarm();
-        updateStatusLines();
-    }
 
-    private void refreshCalendarDisplay() {
-        if (mLockCalendarAlarm) {
-            mNextCalendar = mLockPatternUtils.getNextCalendarAlarm(mLockCalendarLookahead,
+        if (mNextAlarm != null) {
+            mAlarmIcon = getContext().getResources().getDrawable(R.drawable.ic_lock_idle_alarm);
+        } else if (mLockCalendarAlarm) {
+            mNextAlarm = mLockPatternUtils.getNextCalendarAlarm(mLockCalendarLookahead,
                     mCalendars, mLockCalendarRemindersOnly);
-        } else {
-            mNextCalendar = null;
+            if (mNextAlarm != null) {
+                mAlarmIcon = getContext().getResources().getDrawable(R.drawable.ic_lock_idle_calendar);
+            }
         }
+
         updateStatusLines();
     }
 
@@ -1055,32 +1043,33 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
     }
 
     private void updateStatusLines() {
-        if (!mStatus.showStatusLines() || mLensePortrait || mWidgetLayout == 1) {
-            mStatusBox.setVisibility(INVISIBLE);
-        } else {
-            mStatusBox.setVisibility(VISIBLE);
+        if (!mStatus.showStatusLines()
+                || (mCharging == null && mNextAlarm == null) || mLensePortrait || mWidgetLayout == 1) {
+            mStatus1.setVisibility(View.INVISIBLE);
+            mStatus2.setVisibility(View.INVISIBLE);
+        } else if (mCharging != null && mNextAlarm == null) {
+            // charging only
+            mStatus1.setVisibility(View.VISIBLE);
+            mStatus2.setVisibility(View.INVISIBLE);
 
-            if (mCharging != null) {
-                mStatusCharging.setText(mCharging);
-                mStatusCharging.setCompoundDrawablesWithIntrinsicBounds(mChargingIcon, null, null, null);
-                mStatusCharging.setVisibility(VISIBLE);
-            } else {
-                mStatusCharging.setVisibility(GONE);
-            }
+            mStatus1.setText(mCharging);
+            mStatus1.setCompoundDrawablesWithIntrinsicBounds(mChargingIcon, null, null, null);
+        } else if (mNextAlarm != null && mCharging == null) {
+            // next alarm only
+            mStatus1.setVisibility(View.VISIBLE);
+            mStatus2.setVisibility(View.INVISIBLE);
 
-            if (mNextAlarm != null) {
-                mStatusAlarm.setText(mNextAlarm);
-                mStatusAlarm.setVisibility(VISIBLE);
-            } else {
-                mStatusAlarm.setVisibility(GONE);
-            }
+            mStatus1.setText(mNextAlarm);
+            mStatus1.setCompoundDrawablesWithIntrinsicBounds(mAlarmIcon, null, null, null);
+        } else if (mCharging != null && mNextAlarm != null) {
+            // both charging and next alarm
+            mStatus1.setVisibility(View.VISIBLE);
+            mStatus2.setVisibility(View.VISIBLE);
 
-            if (mNextCalendar != null) {
-                mStatusCalendar.setText(mNextCalendar);
-                mStatusCalendar.setVisibility(VISIBLE);
-            } else {
-                mStatusCalendar.setVisibility(GONE);
-            }
+            mStatus1.setText(mCharging);
+            mStatus1.setCompoundDrawablesWithIntrinsicBounds(mChargingIcon, null, null, null);
+            mStatus2.setText(mNextAlarm);
+            mStatus2.setCompoundDrawablesWithIntrinsicBounds(mAlarmIcon, null, null, null);
         }
     }
 
@@ -1291,8 +1280,7 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
         if (newConfig.hardKeyboardHidden != mKeyboardHidden) {
             mKeyboardHidden = newConfig.hardKeyboardHidden;
             final boolean isKeyboardOpen = mKeyboardHidden == Configuration.HARDKEYBOARDHIDDEN_NO;
-            if (mSliderUnlockScreen && mUpdateMonitor.isKeyguardBypassEnabled() 
-                    && isKeyboardOpen && !mGestureActive) {
+            if (mSliderUnlockScreen && isKeyboardOpen) {
                 mCallback.goToUnlockScreen();
                 return;
             }
@@ -1415,26 +1403,15 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
                     mContext.sendBroadcast(new Intent("net.cactii.flash2.TOGGLE_FLASHLIGHT"));
                     mCallback.pokeWakelock();
                 } else if ("NEXT".equals(uri)) {
-                    mCallback.pokeWakelock();
-                    sendMediaButtonEvent(KeyEvent.KEYCODE_MEDIA_NEXT);
+                    mForwardIcon.performClick();
                 } else if ("PREVIOUS".equals(uri)) {
-                    mCallback.pokeWakelock();
-                    sendMediaButtonEvent(KeyEvent.KEYCODE_MEDIA_PREVIOUS);
+                    mRewindIcon.performClick();
                 } else if ("PLAYPAUSE".equals(uri)) {
-                    mCallback.pokeWakelock();
-                    refreshMusicStatus();
-                    if (!am.isMusicActive()) {
-                        mPauseIcon.setVisibility(View.VISIBLE);
-                        mPlayIcon.setVisibility(View.GONE);
-                        mRewindIcon.setVisibility(View.VISIBLE);
-                        mForwardIcon.setVisibility(View.VISIBLE);
+                    if (mPauseIcon.getVisibility() == View.VISIBLE) {
+                        mPauseIcon.performClick();
                     } else {
-                        mPauseIcon.setVisibility(View.GONE);
-                        mPlayIcon.setVisibility(View.VISIBLE);
-                        mRewindIcon.setVisibility(View.GONE);
-                        mForwardIcon.setVisibility(View.GONE);
+                        mPlayIcon.performClick();
                     }
-                    sendMediaButtonEvent(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
                 } else
                     try {
                         Intent i = Intent.parseUri(uri, 0);
