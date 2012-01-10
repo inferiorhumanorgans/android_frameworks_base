@@ -2586,6 +2586,18 @@ public final class Settings {
         public static final String IN_CALL_STYLE_PREF = "in_call_style_pref";
 
         /**
+         * Sets the rotary lock style
+         * @hide
+         */
+        public static final String ROTARY_STYLE_PREF = "rotary_style_pref";
+
+        /**
+         * Sets the ringlock style
+         * @hide
+         */
+        public static final String RINGLOCK_STYLE_PREF = "ringlock_style_pref";
+
+        /**
          * Pulse the Trackball with Screen On.  The value is boolean (1 or 0).
          * @hide
          */
@@ -3698,6 +3710,12 @@ public final class Settings {
          * @hide
          */
         public static final String ASSISTED_GPS_ENABLED = "assisted_gps_enabled";
+        
+         /**
+         * External BT GPS device
+         * @hide
+         */
+        public static final String EXTERNAL_GPS_BT_DEVICE = "0";
 
         /**
          * The Logging ID (a unique 64-bit value) as a hex string.
@@ -5065,4 +5083,5 @@ public final class Settings {
     public static String getGTalkDeviceId(long androidId) {
         return "android-" + Long.toHexString(androidId);
     }
+    
 }
